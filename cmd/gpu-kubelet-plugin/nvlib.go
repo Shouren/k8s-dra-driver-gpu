@@ -104,6 +104,20 @@ func (l deviceLib) alwaysShutdown() {
 func (l deviceLib) enumerateAllPossibleDevices(config *Config) (AllocatableDevices, error) {
 	alldevices := make(AllocatableDevices)
 
+	// Note: Hacking by HAMi Core
+	if config.flags.enableHAMiCore {
+		gms, err := l.enumerateGpusDevicesForHAMiCore(config)
+		if err != nil {
+			return nil, fmt.Errorf("error enumerating GPUs devices for HAMi Core: %w", err)
+		}
+
+		for k, v := range gms {
+			alldevices[k] = v
+		}
+
+		return alldevices, nil
+	}
+
 	gms, err := l.enumerateGpusAndMigDevices(config)
 	if err != nil {
 		return nil, fmt.Errorf("error enumerating GPUs and MIG devices: %w", err)
@@ -113,6 +127,59 @@ func (l deviceLib) enumerateAllPossibleDevices(config *Config) (AllocatableDevic
 	}
 
 	return alldevices, nil
+}
+
+// TODO: Merge this func into enumerateGpusAndMigDevices
+func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableDevices, error) {
+	if err := l.Init(); err != nil {
+		return nil, err
+	}
+	defer l.alwaysShutdown()
+
+	splitCount := config.flags.hamiCoreDevSplitCount
+	devices := make(AllocatableDevices)
+	err := l.VisitDevices(func(i int, d nvdev.Device) error {
+		gpuInfo, err := l.getGpuInfo(i, d)
+		if err != nil {
+			return fmt.Errorf("error getting info for GPU %d: %w", i, err)
+		}
+
+		for idx := range splitCount {
+			hamiGpuInfo := &GpuInfo{
+				UUID:                  gpuInfo.UUID,
+				minor:                 gpuInfo.minor,
+				index:                 gpuInfo.index,
+				migEnabled:            gpuInfo.migEnabled,
+				memoryBytes:           gpuInfo.memoryBytes / uint64(splitCount),
+				productName:           gpuInfo.productName,
+				brand:                 gpuInfo.brand,
+				architecture:          gpuInfo.architecture,
+				cudaComputeCapability: gpuInfo.cudaComputeCapability,
+				driverVersion:         gpuInfo.driverVersion,
+				cudaDriverVersion:     gpuInfo.cudaDriverVersion,
+				pcieBusID:             gpuInfo.pcieBusID,
+				pcieRootAttr:          gpuInfo.pcieRootAttr,
+				migProfiles:           gpuInfo.migProfiles,
+			}
+			deviceInfo := &AllocatableDevice{
+				Gpu: hamiGpuInfo,
+			}
+			name := gpuInfo.CanonicalName() + ":" + string(idx)
+			devices[name] = deviceInfo
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error visiting devices: %w", err)
+	}
+
+	// Debug:
+	for idx, _ := range devices {
+		klog.Warningf("enumerateGpusDevicesForHAMiCore -- CanonicalIndex: %s, memoryBytes: %s", idx)
+	}
+
+	return devices, nil
 }
 
 func (l deviceLib) enumerateGpusAndMigDevices(config *Config) (AllocatableDevices, error) {

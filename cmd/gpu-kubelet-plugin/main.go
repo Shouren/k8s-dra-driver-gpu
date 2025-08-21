@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	DriverName                         = "gpu.nvidia.com"
+	DriverName                         = "hami-core.project-hami.io"
+	DriverPluginPath                   = "/var/lib/kubelet/plugins/" + DriverName
 	DriverPluginCheckpointFileBasename = "checkpoint.json"
 )
 
@@ -53,6 +54,10 @@ type Flags struct {
 	kubeletRegistrarDirectoryPath string
 	kubeletPluginsDirectoryPath   string
 	healthcheckPort               int
+
+	// TODO: Move into pkg/flags
+	enableHAMiCore        bool
+	hamiCoreDevSplitCount uint
 }
 
 type Config struct {
@@ -146,6 +151,23 @@ func newApp() *cli.App {
 			Value:       -1,
 			Destination: &flags.healthcheckPort,
 			EnvVars:     []string{"HEALTHCHECK_PORT"},
+		},
+
+		// TODO: Moving into pkg/flags
+		&cli.BoolFlag{
+			Name:        "enable-hami-core",
+			Usage:       "Whether enable hami core or not",
+			Required:    false,
+			Destination: &flags.enableHAMiCore,
+			EnvVars:     []string{"ENABLE_HAMI_CORE"},
+		},
+		&cli.UintFlag{
+			Name:        "hami-core-dev-split-count",
+			Usage:       "The count of dev splitted by HAMi Core",
+			Required:    false,
+			DefaultText: "10",
+			Destination: &flags.hamiCoreDevSplitCount,
+			EnvVars:     []string{"HAMI_CORE_DEV_SPLIT_COUNT"},
 		},
 	}
 	cliFlags = append(cliFlags, flags.kubeClientConfig.Flags()...)

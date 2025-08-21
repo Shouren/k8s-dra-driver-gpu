@@ -25,13 +25,17 @@ import (
 type AllocatableDevices map[string]*AllocatableDevice
 
 type AllocatableDevice struct {
-	Gpu *GpuInfo
-	Mig *MigDeviceInfo
+	Gpu     *GpuInfo
+	HAMiGpu *HAMiGpuInfo
+	Mig     *MigDeviceInfo
 }
 
 func (d AllocatableDevice) Type() string {
 	if d.Gpu != nil {
 		return GpuDeviceType
+	}
+	if d.HAMiGpu != nil {
+		return HAMiGpuDeviceType
 	}
 	if d.Mig != nil {
 		return MigDeviceType
@@ -43,6 +47,8 @@ func (d *AllocatableDevice) CanonicalName() string {
 	switch d.Type() {
 	case GpuDeviceType:
 		return d.Gpu.CanonicalName()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.CanonicalName()
 	case MigDeviceType:
 		return d.Mig.CanonicalName()
 	}
@@ -53,6 +59,8 @@ func (d *AllocatableDevice) CanonicalIndex() string {
 	switch d.Type() {
 	case GpuDeviceType:
 		return d.Gpu.CanonicalIndex()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.CanonicalIndex()
 	case MigDeviceType:
 		return d.Mig.CanonicalIndex()
 	}
@@ -63,6 +71,8 @@ func (d *AllocatableDevice) GetDevice() resourceapi.Device {
 	switch d.Type() {
 	case GpuDeviceType:
 		return d.Gpu.GetDevice()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.GetDevice()
 	case MigDeviceType:
 		return d.Mig.GetDevice()
 	}
@@ -74,6 +84,9 @@ func (d AllocatableDevices) GpuUUIDs() []string {
 	for _, device := range d {
 		if device.Type() == GpuDeviceType {
 			uuids = append(uuids, device.Gpu.UUID)
+		}
+		if device.Type() == HAMiGpuDeviceType {
+			uuids = append(uuids, device.HAMiGpu.UUID)
 		}
 	}
 	slices.Sort(uuids)

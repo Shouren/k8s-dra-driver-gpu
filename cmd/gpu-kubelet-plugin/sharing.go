@@ -32,7 +32,10 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/google/uuid"
+
 	appsv1 "k8s.io/api/apps/v1"
+	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,6 +59,10 @@ const (
 	MpsControlDaemonTemplatePath = "/templates/mps-control-daemon.tmpl.yaml"
 	MpsControlDaemonNameFmt      = "mps-control-daemon-%v" // Fill with ClaimUID
 )
+
+type HAMiCoreManager struct {
+	nvdevlib *deviceLib
+}
 
 type TimeSlicingManager struct {
 	nvdevlib *deviceLib
@@ -96,6 +103,56 @@ type MpsControlDaemonTemplateData struct {
 	MpsLogDirectory                 string
 	MpsImageName                    string
 	FeatureGates                    map[string]bool
+}
+
+func NewHAMiCoreManager(deviceLib *deviceLib) *HAMiCoreManager {
+	return &HAMiCoreManager{
+		nvdevlib: deviceLib,
+	}
+}
+
+func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim, devs AllocatableDevices) *cdiapi.ContainerEdits {
+	hostHookPath := "/usr/local/vgpu"
+	cacheFileHostDirectory := fmt.Sprintf("%s/vgpu/claims/%s", hostHookPath, claim.Name)
+
+	hamiEnvs := []string{}
+	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_SM_LIMIT=%s", "60"))
+	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_SHARED_CACHE=%s", fmt.Sprintf("%s/vgpu/%v.cache", hostHookPath, uuid.New().String())))
+
+	idx := 0
+	for name, dev := range devs {
+		klog.Warningf("GetCDIContainerEdits for dev: %s", name)
+		memoryLimit := string(dev.HAMiGpu.memoryBytes/1024/1024) + "m"
+		hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%s=%s", idx, memoryLimit))
+		idx++
+	}
+
+	return &cdiapi.ContainerEdits{
+		ContainerEdits: &cdispec.ContainerEdits{
+			Env: hamiEnvs,
+			Mounts: []*cdispec.Mount{
+				{
+					ContainerPath: hostHookPath + "/vgpu/libvgpu.so",
+					HostPath:      hostHookPath + "/vgpu/libvgpu.so",
+					Options:       []string{"ro", "nosuid", "nodev", "bind"},
+				},
+				{
+					ContainerPath: hostHookPath + "/vgpu",
+					HostPath:      cacheFileHostDirectory,
+					Options:       []string{"rw", "nosuid", "nodev", "bind"},
+				},
+				{
+					ContainerPath: "/tmp/vgpulock",
+					HostPath:      "/tmp/vgpulock",
+					Options:       []string{"rw", "nosuid", "nodev", "bind"},
+				},
+			},
+		},
+	}
+}
+
+func (m *HAMiCoreManager) Clearup(PreparedDeviceList) error {
+	return nil
 }
 
 func NewTimeSlicingManager(deviceLib *deviceLib) *TimeSlicingManager {

@@ -26,12 +26,18 @@ type PreparedDeviceList []PreparedDevice
 type PreparedDevices []*PreparedDeviceGroup
 
 type PreparedDevice struct {
-	Gpu *PreparedGpu       `json:"gpu"`
-	Mig *PreparedMigDevice `json:"mig"`
+	Gpu     *PreparedGpu       `json:"gpu"`
+	HAMiGpu *PreparedHAMiGpu   `json:"hami-gpu"`
+	Mig     *PreparedMigDevice `json:"mig"`
 }
 
 type PreparedGpu struct {
 	Info   *GpuInfo              `json:"info"`
+	Device *kubeletplugin.Device `json:"device"`
+}
+
+type PreparedHAMiGpu struct {
+	Info   *HAMiGpuInfo          `json:"info"`
 	Device *kubeletplugin.Device `json:"device"`
 }
 
@@ -49,6 +55,9 @@ func (d PreparedDevice) Type() string {
 	if d.Gpu != nil {
 		return GpuDeviceType
 	}
+	if d.HAMiGpu != nil {
+		return HAMiGpuDeviceType
+	}
 	if d.Mig != nil {
 		return MigDeviceType
 	}
@@ -59,6 +68,8 @@ func (d *PreparedDevice) CanonicalName() string {
 	switch d.Type() {
 	case GpuDeviceType:
 		return d.Gpu.Info.CanonicalName()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.Info.CanonicalName()
 	case MigDeviceType:
 		return d.Mig.Info.CanonicalName()
 	}
@@ -69,6 +80,8 @@ func (d *PreparedDevice) CanonicalIndex() string {
 	switch d.Type() {
 	case GpuDeviceType:
 		return d.Gpu.Info.CanonicalIndex()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.Info.CanonicalIndex()
 	case MigDeviceType:
 		return d.Mig.Info.CanonicalIndex()
 	}
@@ -79,6 +92,16 @@ func (l PreparedDeviceList) Gpus() PreparedDeviceList {
 	var devices PreparedDeviceList
 	for _, device := range l {
 		if device.Type() == GpuDeviceType {
+			devices = append(devices, device)
+		}
+	}
+	return devices
+}
+
+func (l PreparedDeviceList) HAMiGpus() PreparedDeviceList {
+	var devices PreparedDeviceList
+	for _, device := range l {
+		if device.Type() == HAMiGpuDeviceType {
 			devices = append(devices, device)
 		}
 	}
@@ -109,6 +132,8 @@ func (g *PreparedDeviceGroup) GetDevices() []kubeletplugin.Device {
 		switch device.Type() {
 		case GpuDeviceType:
 			devices = append(devices, *device.Gpu.Device)
+		case HAMiGpuDeviceType:
+			devices = append(devices, *device.HAMiGpu.Device)
 		case MigDeviceType:
 			devices = append(devices, *device.Mig.Device)
 		}
@@ -143,14 +168,36 @@ func (l PreparedDeviceList) GpuUUIDs() []string {
 	return uuids
 }
 
+func (l PreparedDeviceList) HAMiGpuUUIDs() []string {
+	var uuids []string
+	for _, device := range l.HAMiGpus() {
+		uuids = append(uuids, device.HAMiGpu.Info.UUID)
+	}
+	slices.Sort(uuids)
+	return uuids
+}
+
 func (g *PreparedDeviceGroup) GpuUUIDs() []string {
 	return g.Devices.Gpus().UUIDs()
+}
+
+func (g *PreparedDeviceGroup) HAMIGpuUUIDs() []string {
+	return g.Devices.HAMiGpus().UUIDs()
 }
 
 func (d PreparedDevices) GpuUUIDs() []string {
 	var uuids []string
 	for _, group := range d {
 		uuids = append(uuids, group.GpuUUIDs()...)
+	}
+	slices.Sort(uuids)
+	return uuids
+}
+
+func (d PreparedDevices) HAMiGpuUUIDs() []string {
+	var uuids []string
+	for _, group := range d {
+		uuids = append(uuids, group.HAMIGpuUUIDs()...)
 	}
 	slices.Sort(uuids)
 	return uuids

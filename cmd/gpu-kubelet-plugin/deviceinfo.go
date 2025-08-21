@@ -45,6 +45,12 @@ type GpuInfo struct {
 	migProfiles           []*MigProfileInfo
 }
 
+type HAMiGpuInfo struct {
+	GpuInfo
+	hamiMinor int
+	hamiIndex int
+}
+
 type MigDeviceInfo struct {
 	UUID          string `json:"uuid"`
 	index         int
@@ -76,11 +82,19 @@ func (d *GpuInfo) CanonicalName() string {
 	return fmt.Sprintf("gpu-%d", d.minor)
 }
 
+func (d *HAMiGpuInfo) CanonicalName() string {
+	return fmt.Sprintf("hami-gpu-%d", d.hamiMinor)
+}
+
 func (d *MigDeviceInfo) CanonicalName() string {
 	return fmt.Sprintf("gpu-%d-mig-%d-%d-%d", d.parent.minor, d.giInfo.ProfileId, d.placement.Start, d.placement.Size)
 }
 
 func (d *GpuInfo) CanonicalIndex() string {
+	return fmt.Sprintf("%d", d.index)
+}
+
+func (d *HAMiGpuInfo) CanonicalIndex() string {
 	return fmt.Sprintf("%d", d.index)
 }
 
@@ -103,6 +117,60 @@ func (d *GpuInfo) GetDevice() resourceapi.Device {
 			},
 			"index": {
 				IntValue: ptr.To(int64(d.index)),
+			},
+			"productName": {
+				StringValue: &d.productName,
+			},
+			"brand": {
+				StringValue: &d.brand,
+			},
+			"architecture": {
+				StringValue: &d.architecture,
+			},
+			"cudaComputeCapability": {
+				VersionValue: ptr.To(semver.MustParse(d.cudaComputeCapability).String()),
+			},
+			"driverVersion": {
+				VersionValue: ptr.To(semver.MustParse(d.driverVersion).String()),
+			},
+			"cudaDriverVersion": {
+				VersionValue: ptr.To(semver.MustParse(d.cudaDriverVersion).String()),
+			},
+			"pcieBusID": {
+				StringValue: &d.pcieBusID,
+			},
+			d.pcieRootAttr.Name: d.pcieRootAttr.Value,
+		},
+		Capacity: map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+			"memory": {
+				Value: *resource.NewQuantity(int64(d.memoryBytes), resource.BinarySI),
+			},
+		},
+	}
+	return device
+}
+
+func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
+	device := resourceapi.Device{
+		Name: d.CanonicalName(),
+		Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+			"type": {
+				StringValue: ptr.To(string(HAMiGpuDeviceType)),
+			},
+			"uuid": {
+				StringValue: &d.UUID,
+			},
+			"minor": {
+				IntValue: ptr.To(int64(d.minor)),
+			},
+			"hami-minor": {
+				IntValue: ptr.To(int64(d.hamiMinor)),
+			},
+			"index": {
+				IntValue: ptr.To(int64(d.index)),
+			},
+			"hami-index": {
+				IntValue: ptr.To(int64(d.hamiIndex)),
 			},
 			"productName": {
 				StringValue: &d.productName,

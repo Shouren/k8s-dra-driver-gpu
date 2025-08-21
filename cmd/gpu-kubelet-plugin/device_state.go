@@ -45,11 +45,12 @@ type DeviceConfigState struct {
 
 type DeviceState struct {
 	sync.Mutex
-	cdi         *CDIHandler
-	tsManager   *TimeSlicingManager
-	mpsManager  *MpsManager
-	allocatable AllocatableDevices
-	config      *Config
+	cdi             *CDIHandler
+	hamiCoreManager *HAMiCoreManager
+	tsManager       *TimeSlicingManager
+	mpsManager      *MpsManager
+	allocatable     AllocatableDevices
+	config          *Config
 
 	nvdevlib          *deviceLib
 	checkpointManager checkpointmanager.CheckpointManager
@@ -94,6 +95,7 @@ func NewDeviceState(ctx context.Context, config *Config) (*DeviceState, error) {
 	if featuregates.Enabled(featuregates.MPSSupport) {
 		mpsManager = NewMpsManager(config, nvdevlib, hostDriverRoot, MpsControlDaemonTemplatePath)
 	}
+	hamiCoreManager := NewHAMiCoreManager(nvdevlib)
 
 	if err := cdi.CreateStandardDeviceSpecFile(allocatable); err != nil {
 		return nil, fmt.Errorf("unable to create base CDI spec file: %v", err)
@@ -106,6 +108,7 @@ func NewDeviceState(ctx context.Context, config *Config) (*DeviceState, error) {
 
 	state := &DeviceState{
 		cdi:               cdi,
+		hamiCoreManager:   hamiCoreManager,
 		tsManager:         tsManager,
 		mpsManager:        mpsManager,
 		allocatable:       allocatable,
@@ -254,7 +257,7 @@ func (s *DeviceState) prepareDevices(ctx context.Context, claim *resourceapi.Res
 		}
 		for _, c := range slices.Backward(configs) {
 			if slices.Contains(c.Requests, result.Request) {
-				if _, ok := c.Config.(*configapi.GpuConfig); ok && device.Type() != GpuDeviceType {
+				if _, ok := c.Config.(*configapi.GpuConfig); ok && device.Type() != GpuDeviceType && device.Type() != HAMiGpuDeviceType {
 					return nil, fmt.Errorf("cannot apply GPU config to request: %v", result.Request)
 				}
 				if _, ok := c.Config.(*configapi.MigDeviceConfig); ok && device.Type() != MigDeviceType {
@@ -264,7 +267,7 @@ func (s *DeviceState) prepareDevices(ctx context.Context, claim *resourceapi.Res
 				break
 			}
 			if len(c.Requests) == 0 {
-				if _, ok := c.Config.(*configapi.GpuConfig); ok && device.Type() != GpuDeviceType {
+				if _, ok := c.Config.(*configapi.GpuConfig); ok && device.Type() != GpuDeviceType && device.Type() != HAMiGpuDeviceType {
 					continue
 				}
 				if _, ok := c.Config.(*configapi.MigDeviceConfig); ok && device.Type() != MigDeviceType {
@@ -343,6 +346,11 @@ func (s *DeviceState) prepareDevices(ctx context.Context, claim *resourceapi.Res
 					Info:   s.allocatable[result.Device].Gpu,
 					Device: device,
 				}
+			case HAMiGpuDeviceType:
+				preparedDevice.HAMiGpu = &PreparedHAMiGpu{
+					Info:   s.allocatable[result.Device].HAMiGpu,
+					Device: device,
+				}
 			case MigDeviceType:
 				preparedDevice.Mig = &PreparedMigDevice{
 					Info:   s.allocatable[result.Device].Mig,
@@ -375,6 +383,13 @@ func (s *DeviceState) unprepareDevices(ctx context.Context, claimUID string, dev
 				return fmt.Errorf("error setting timeslice for devices: %w", err)
 			}
 		}
+
+		// TODO: Clearup for hamiCoreManager
+		// Doing Nothing here
+		err := s.hamiCoreManager.Clearup(group.Devices.HAMiGpus())
+		if err != nil {
+			return fmt.Errorf("error clearup for hami devices: %w", err)
+		}
 	}
 	return nil
 }
@@ -406,6 +421,10 @@ func (s *DeviceState) applySharingConfig(ctx context.Context, config configapi.S
 	// Declare a device group state object to populate.
 	var configState DeviceConfigState
 
+	if s.config.flags.enableHAMiCore {
+		// Hack: TimeSlicing
+		configState.containerEdits = s.hamiCoreManager.GetCDIContainerEdits(claim, allocatableDevices)
+	}
 	// Apply time-slicing settings (if available and feature gate enabled).
 	if featuregates.Enabled(featuregates.TimeSlicingSettings) && config.IsTimeSlicing() {
 		tsc, err := config.GetTimeSlicingConfig()
