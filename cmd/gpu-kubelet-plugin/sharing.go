@@ -120,6 +120,7 @@ func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim,
 	os.Chmod(cacheFileHostDirectory, 0777)
 
 	hamiEnvs := []string{}
+	// TOOD: Get SM Limit from Claim's Annotation
 	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_SM_LIMIT=%s", "60"))
 	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_SHARED_CACHE=%s", fmt.Sprintf("%s/vgpu/%v.cache", hostHookPath, uuid.New().String())))
 
@@ -138,6 +139,12 @@ func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim,
 				{
 					ContainerPath: hostHookPath + "/vgpu/libvgpu.so",
 					HostPath:      hostHookPath + "/vgpu/libvgpu.so",
+					Options:       []string{"ro", "nosuid", "nodev", "bind"},
+				},
+				// TODO: Check CUDA_DISABLE_CONTROL env before mount ld.so.preload
+				{
+					ContainerPath: "/etc/ld.so.preload",
+					HostPath:      hostHookPath + "/vgpu/ld.so.preload",
 					Options:       []string{"ro", "nosuid", "nodev", "bind"},
 				},
 				{
