@@ -112,8 +112,12 @@ func NewHAMiCoreManager(deviceLib *deviceLib) *HAMiCoreManager {
 }
 
 func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim, devs AllocatableDevices) *cdiapi.ContainerEdits {
-	hostHookPath := "/usr/local/vgpu"
+	hostHookPath := "/usr/local"
 	cacheFileHostDirectory := fmt.Sprintf("%s/vgpu/claims/%s", hostHookPath, claim.Name)
+	// TODO: We should check the status of claim, becasue there may be two pod share the claim
+	os.RemoveAll(cacheFileHostDirectory)
+	os.MkdirAll(cacheFileHostDirectory, 0777)
+	os.Chmod(cacheFileHostDirectory, 0777)
 
 	hamiEnvs := []string{}
 	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_SM_LIMIT=%s", "60"))
@@ -122,8 +126,8 @@ func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim,
 	idx := 0
 	for name, dev := range devs {
 		klog.Warningf("GetCDIContainerEdits for dev: %s", name)
-		memoryLimit := string(dev.HAMiGpu.memoryBytes/1024/1024) + "m"
-		hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%s=%s", idx, memoryLimit))
+		memoryLimit := string(strconv.FormatUint(dev.HAMiGpu.memoryBytes/1024/1024, 10)) + "m"
+		hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%d=%s", idx, memoryLimit))
 		idx++
 	}
 

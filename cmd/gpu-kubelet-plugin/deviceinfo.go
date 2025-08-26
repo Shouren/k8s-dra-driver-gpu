@@ -163,13 +163,13 @@ func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 			"minor": {
 				IntValue: ptr.To(int64(d.minor)),
 			},
-			"hami-minor": {
+			"hamiMinor": {
 				IntValue: ptr.To(int64(d.hamiMinor)),
 			},
 			"index": {
 				IntValue: ptr.To(int64(d.index)),
 			},
-			"hami-index": {
+			"hamiIndex": {
 				IntValue: ptr.To(int64(d.hamiIndex)),
 			},
 			"productName": {

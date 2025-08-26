@@ -145,26 +145,31 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 		}
 
 		for idx := range splitCount {
-			hamiGpuInfo := &GpuInfo{
-				UUID:                  gpuInfo.UUID,
-				minor:                 gpuInfo.minor,
-				index:                 gpuInfo.index,
-				migEnabled:            gpuInfo.migEnabled,
-				memoryBytes:           gpuInfo.memoryBytes / uint64(splitCount),
-				productName:           gpuInfo.productName,
-				brand:                 gpuInfo.brand,
-				architecture:          gpuInfo.architecture,
-				cudaComputeCapability: gpuInfo.cudaComputeCapability,
-				driverVersion:         gpuInfo.driverVersion,
-				cudaDriverVersion:     gpuInfo.cudaDriverVersion,
-				pcieBusID:             gpuInfo.pcieBusID,
-				pcieRootAttr:          gpuInfo.pcieRootAttr,
-				migProfiles:           gpuInfo.migProfiles,
+			hamiGpuInfo := &HAMiGpuInfo{
+				GpuInfo: GpuInfo{
+					UUID:                  gpuInfo.UUID,
+					minor:                 gpuInfo.minor,
+					index:                 gpuInfo.index,
+					migEnabled:            gpuInfo.migEnabled,
+					memoryBytes:           gpuInfo.memoryBytes / uint64(splitCount),
+					productName:           gpuInfo.productName,
+					brand:                 gpuInfo.brand,
+					architecture:          gpuInfo.architecture,
+					cudaComputeCapability: gpuInfo.cudaComputeCapability,
+					driverVersion:         gpuInfo.driverVersion,
+					cudaDriverVersion:     gpuInfo.cudaDriverVersion,
+					pcieBusID:             gpuInfo.pcieBusID,
+					pcieRootAttr:          gpuInfo.pcieRootAttr,
+					migProfiles:           gpuInfo.migProfiles,
+				},
+				// TODO: A better mapping method should be applied
+				hamiMinor: gpuInfo.minor + 100 + int(idx*10),
+				hamiIndex: gpuInfo.index + 100 + int(idx*10),
 			}
 			deviceInfo := &AllocatableDevice{
-				Gpu: hamiGpuInfo,
+				HAMiGpu: hamiGpuInfo,
 			}
-			name := gpuInfo.CanonicalName() + ":" + string(idx)
+			name := hamiGpuInfo.CanonicalName()
 			devices[name] = deviceInfo
 		}
 
@@ -175,8 +180,8 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 	}
 
 	// Debug:
-	for idx, _ := range devices {
-		klog.Warningf("enumerateGpusDevicesForHAMiCore -- CanonicalIndex: %s, memoryBytes: %s", idx)
+	for name, _ := range devices {
+		klog.Warningf("enumerateGpusDevicesForHAMiCore -- CanonicalName: %s", name)
 	}
 
 	return devices, nil

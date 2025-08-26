@@ -433,11 +433,11 @@ func (s *DeviceState) applySharingConfig(ctx context.Context, config configapi.S
 		}
 		if tsc != nil {
 			err = s.tsManager.SetTimeSlice(allocatableDevices, tsc)
-			if err != nil {
-				return nil, fmt.Errorf("error setting timeslice config for requests '%v' in claim '%v': %w", requests, claim.UID, err)
+				if err != nil {
+					return nil, fmt.Errorf("error setting timeslice config for requests '%v' in claim '%v': %w", requests, claim.UID, err)
+				}
 			}
 		}
-	}
 
 	// Apply MPS settings (if available and feature gate enabled).
 	if featuregates.Enabled(featuregates.MPSSupport) && config.IsMps() {
