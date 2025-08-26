@@ -17,6 +17,10 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 featureGates:
   DynamicResourceAllocation: true
+  DRAAdminAccess: true
+  DRAResourceClaimDeviceStatus: true
+  DRAPartitionableDevices: true
+  DRAPrioritizedList: true
 containerdConfigPatches:
 # Enable CDI as described in
 # https://tags.cncf.io/container-device-interface#containerd-configuration
@@ -32,7 +36,7 @@ nodes:
     kind: ClusterConfiguration
     apiServer:
         extraArgs:
-          runtime-config: "resource.k8s.io/v1beta1=true"
+          runtime-config: "resource.k8s.io/v1beta1=true,resource.k8s.io/v1beta2=true"
     scheduler:
         extraArgs:
           v: "1"
