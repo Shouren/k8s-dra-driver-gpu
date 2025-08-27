@@ -127,7 +127,7 @@ func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim,
 	idx := 0
 	for name, dev := range devs {
 		klog.Warningf("GetCDIContainerEdits for dev: %s", name)
-		memoryLimit := string(strconv.FormatUint(dev.HAMiGpu.memoryBytes/1024/1024, 10)) + "m"
+		memoryLimit := string(strconv.FormatUint(dev.HAMiGpu.hamiMemoryBytes/1024/1024, 10)) + "m"
 		hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%d=%s", idx, memoryLimit))
 		idx++
 	}

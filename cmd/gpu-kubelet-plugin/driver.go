@@ -77,8 +77,15 @@ func NewDriver(ctx context.Context, config *Config) (*driver, error) {
 
 	// Enumerate the set of GPU and MIG devices and publish them
 	var resourceSlice resourceslice.Slice
+	counterSetMap := map[string]bool{}
 	for _, device := range state.allocatable {
 		resourceSlice.Devices = append(resourceSlice.Devices, device.GetDevice())
+		counterSet := device.GetSharedCounterSet()
+		if _, ok := counterSetMap[counterSet.Name]; ok && counterSet.Name != "" {
+			continue
+		}
+		counterSetMap[counterSet.Name] = true
+		resourceSlice.SharedCounters = append(resourceSlice.SharedCounters, counterSet)
 	}
 
 	resources := resourceslice.DriverResources{

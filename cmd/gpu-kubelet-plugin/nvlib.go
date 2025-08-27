@@ -151,7 +151,7 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 					minor:                 gpuInfo.minor,
 					index:                 gpuInfo.index,
 					migEnabled:            gpuInfo.migEnabled,
-					memoryBytes:           gpuInfo.memoryBytes / uint64(splitCount),
+					memoryBytes:           gpuInfo.memoryBytes,
 					productName:           gpuInfo.productName,
 					brand:                 gpuInfo.brand,
 					architecture:          gpuInfo.architecture,
@@ -163,8 +163,10 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 					migProfiles:           gpuInfo.migProfiles,
 				},
 				// TODO: A better mapping method should be applied
-				hamiMinor: gpuInfo.minor + 100 + int(idx*10),
-				hamiIndex: gpuInfo.index + 100 + int(idx*10),
+				hamiSplitCounter: splitCount,
+				hamiIndex:        int(idx),
+				hamiSMLimit:      100 / splitCount,
+				hamiMemoryBytes:  gpuInfo.memoryBytes / uint64(splitCount),
 			}
 			deviceInfo := &AllocatableDevice{
 				HAMiGpu: hamiGpuInfo,

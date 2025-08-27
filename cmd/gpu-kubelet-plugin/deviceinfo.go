@@ -47,8 +47,10 @@ type GpuInfo struct {
 
 type HAMiGpuInfo struct {
 	GpuInfo
-	hamiMinor int
-	hamiIndex int
+	hamiSplitCounter uint
+	hamiIndex        int
+	hamiSMLimit      uint
+	hamiMemoryBytes  uint64
 }
 
 type MigDeviceInfo struct {
@@ -83,7 +85,7 @@ func (d *GpuInfo) CanonicalName() string {
 }
 
 func (d *HAMiGpuInfo) CanonicalName() string {
-	return fmt.Sprintf("hami-gpu-%d", d.hamiMinor)
+	return fmt.Sprintf("hami-gpu-%d-%d", d.minor, d.hamiIndex)
 }
 
 func (d *MigDeviceInfo) CanonicalName() string {
@@ -150,6 +152,10 @@ func (d *GpuInfo) GetDevice() resourceapi.Device {
 	return device
 }
 
+func (d *GpuInfo) GetSharedCounterSet() resourceapi.CounterSet {
+	return resourceapi.CounterSet{}
+}
+
 func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 	device := resourceapi.Device{
 		Name: d.CanonicalName(),
@@ -162,9 +168,6 @@ func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 			},
 			"minor": {
 				IntValue: ptr.To(int64(d.minor)),
-			},
-			"hamiMinor": {
-				IntValue: ptr.To(int64(d.hamiMinor)),
 			},
 			"index": {
 				IntValue: ptr.To(int64(d.index)),
@@ -200,8 +203,36 @@ func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 				Value: *resource.NewQuantity(int64(d.memoryBytes), resource.BinarySI),
 			},
 		},
+		ConsumesCounters: []resourceapi.DeviceCounterConsumption{
+			{
+				CounterSet: fmt.Sprintf("hami-gpu-%s", d.CanonicalIndex()),
+				Counters: map[string]resourceapi.Counter{
+					"hami-cores": resourceapi.Counter{
+						Value: *resource.NewQuantity(int64(d.hamiSMLimit), resource.DecimalSI),
+					},
+					"hami-memory": resourceapi.Counter{
+						Value: *resource.NewQuantity(int64(d.hamiMemoryBytes), resource.BinarySI),
+					},
+				},
+			},
+		},
 	}
 	return device
+}
+
+func (d *HAMiGpuInfo) GetSharedCounterSet() resourceapi.CounterSet {
+	// Note: Only hamiSMLimit and hamiMemoryBytes are supoorted in counter
+	return resourceapi.CounterSet{
+		Name: fmt.Sprintf("hami-gpu-%s", d.CanonicalIndex()),
+		Counters: map[string]resourceapi.Counter{
+			"hami-cores": resourceapi.Counter{
+				Value: *resource.NewQuantity(100, resource.DecimalSI),
+			},
+			"hami-memory": resourceapi.Counter{
+				Value: *resource.NewQuantity(int64(d.memoryBytes), resource.BinarySI),
+			},
+		},
+	}
 }
 
 func (d *MigDeviceInfo) GetDevice() resourceapi.Device {
@@ -268,4 +299,8 @@ func (d *MigDeviceInfo) GetDevice() resourceapi.Device {
 		}
 	}
 	return device
+}
+
+func (d *MigDeviceInfo) GetSharedCounterSet() resourceapi.CounterSet {
+	return resourceapi.CounterSet{}
 }

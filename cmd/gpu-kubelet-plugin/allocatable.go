@@ -79,6 +79,18 @@ func (d *AllocatableDevice) GetDevice() resourceapi.Device {
 	panic("unexpected type for AllocatableDevice")
 }
 
+func (d *AllocatableDevice) GetSharedCounterSet() resourceapi.CounterSet {
+	switch d.Type() {
+	case GpuDeviceType:
+		return d.Gpu.GetSharedCounterSet()
+	case HAMiGpuDeviceType:
+		return d.HAMiGpu.GetSharedCounterSet()
+	case MigDeviceType:
+		return d.Mig.GetSharedCounterSet()
+	}
+	panic("unexpected type for AllocatableDevice")
+}
+
 func (d AllocatableDevices) GpuUUIDs() []string {
 	var uuids []string
 	for _, device := range d {
