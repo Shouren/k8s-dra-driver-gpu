@@ -47,10 +47,10 @@ type GpuInfo struct {
 
 type HAMiGpuInfo struct {
 	GpuInfo
-	hamiSplitCounter uint
-	hamiIndex        int
-	hamiSMLimit      uint
-	hamiMemoryBytes  uint64
+	// hamiSplitCounter uint
+	// hamiIndex        int
+	// hamiSMLimit      uint
+	// hamiMemoryBytes  uint64
 }
 
 type MigDeviceInfo struct {
@@ -85,7 +85,8 @@ func (d *GpuInfo) CanonicalName() string {
 }
 
 func (d *HAMiGpuInfo) CanonicalName() string {
-	return fmt.Sprintf("hami-gpu-%d-%d", d.minor, d.hamiIndex)
+	// return fmt.Sprintf("hami-gpu-%d-%d", d.minor, d.hamiIndex)
+	return fmt.Sprintf("hami-gpu-%d", d.minor)
 }
 
 func (d *MigDeviceInfo) CanonicalName() string {
@@ -157,6 +158,7 @@ func (d *GpuInfo) GetSharedCounterSet() resourceapi.CounterSet {
 }
 
 func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
+	allowed := true
 	device := resourceapi.Device{
 		Name: d.CanonicalName(),
 		Attributes: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
@@ -172,9 +174,9 @@ func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 			"index": {
 				IntValue: ptr.To(int64(d.index)),
 			},
-			"hamiIndex": {
-				IntValue: ptr.To(int64(d.hamiIndex)),
-			},
+			// "hamiIndex": {
+			// 	IntValue: ptr.To(int64(d.hamiIndex)),
+			// },
 			"productName": {
 				StringValue: &d.productName,
 			},
@@ -199,24 +201,30 @@ func (d *HAMiGpuInfo) GetDevice() resourceapi.Device {
 			d.pcieRootAttr.Name: d.pcieRootAttr.Value,
 		},
 		Capacity: map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+			"cores": {
+				Value: *resource.NewQuantity(int64(100), resource.DecimalSI),
+			},
 			"memory": {
 				Value: *resource.NewQuantity(int64(d.memoryBytes), resource.BinarySI),
 			},
 		},
-		ConsumesCounters: []resourceapi.DeviceCounterConsumption{
-			{
-				CounterSet: fmt.Sprintf("hami-gpu-%s", d.CanonicalIndex()),
-				Counters: map[string]resourceapi.Counter{
-					"hami-cores": resourceapi.Counter{
-						Value: *resource.NewQuantity(int64(d.hamiSMLimit), resource.DecimalSI),
-					},
-					"hami-memory": resourceapi.Counter{
-						Value: *resource.NewQuantity(int64(d.hamiMemoryBytes), resource.BinarySI),
-					},
-				},
-			},
-		},
+		AllowMultipleAllocations: &allowed,
 	}
+	// if d.hamiSplitCounter > 1 {
+	// 	device.ConsumesCounters = []resourceapi.DeviceCounterConsumption{
+	// 		{
+	// 			CounterSet: fmt.Sprintf("hami-gpu-%s", d.CanonicalIndex()),
+	// 			Counters: map[string]resourceapi.Counter{
+	// 				"hami-cores": resourceapi.Counter{
+	// 					Value: *resource.NewQuantity(int64(d.hamiSMLimit), resource.DecimalSI),
+	// 				},
+	// 				"hami-memory": resourceapi.Counter{
+	// 					Value: *resource.NewQuantity(int64(d.hamiMemoryBytes), resource.BinarySI),
+	// 				},
+	// 			},
+	// 		},
+	// 	}
+	// }
 	return device
 }
 

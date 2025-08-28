@@ -23,6 +23,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -111,6 +113,18 @@ func NewHAMiCoreManager(deviceLib *deviceLib) *HAMiCoreManager {
 	}
 }
 
+func (m *HAMiCoreManager) getConsumableCapacityMap(claim *resourceapi.ResourceClaim) map[string]map[resourceapi.QualifiedName]resource.Quantity {
+	resMap := map[string]map[resourceapi.QualifiedName]resource.Quantity{}
+	for _, result := range claim.Status.Allocation.Devices.Results {
+		devName := result.Device
+		if _, exists := resMap[devName]; !exists {
+			resMap[devName] = map[resourceapi.QualifiedName]resource.Quantity{}
+		}
+		maps.Copy(resMap[devName], result.ConsumedCapacity)
+	}
+	return resMap
+}
+
 func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim, devs AllocatableDevices) *cdiapi.ContainerEdits {
 	hostHookPath := "/usr/local"
 	cacheFileHostDirectory := fmt.Sprintf("%s/vgpu/claims/%s", hostHookPath, claim.Name)
@@ -121,14 +135,36 @@ func (m *HAMiCoreManager) GetCDIContainerEdits(claim *resourceapi.ResourceClaim,
 
 	hamiEnvs := []string{}
 	// TOOD: Get SM Limit from Claim's Annotation
-	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_SM_LIMIT=%s", "60"))
 	hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_SHARED_CACHE=%s", fmt.Sprintf("%s/vgpu/%v.cache", hostHookPath, uuid.New().String())))
 
+	devCapMap := m.getConsumableCapacityMap(claim)
 	idx := 0
 	for name, dev := range devs {
-		klog.Warningf("GetCDIContainerEdits for dev: %s", name)
-		memoryLimit := string(strconv.FormatUint(dev.HAMiGpu.hamiMemoryBytes/1024/1024, 10)) + "m"
-		hamiEnvs = append(hamiEnvs, fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%d=%s", idx, memoryLimit))
+		// TODO: The idx here may not equals to the index in nvidia-smi, So we need to find a solution to solve it
+		klog.Warningf("HAMiCoreManager GetCDIContainerEdits for dev: %s\n", name)
+		capNameSMLimit := resourceapi.QualifiedName("cores")
+		capNameMemoryLimit := resourceapi.QualifiedName("memory")
+		SMLimitEnv := fmt.Sprintf("CUDA_DEVICE_SM_LIMIT_%d=%s", idx, "60")
+		memoryLimit := string(strconv.FormatUint(dev.HAMiGpu.memoryBytes/1024/1024, 10)) + "m"
+		MemoryLimitEnv := fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%d=%s", idx, memoryLimit)
+		// TODO: Loop in a map getting from HAMiCoreManager
+		if _, ok := devCapMap[name]; ok {
+			if _, ok := devCapMap[name][capNameSMLimit]; ok {
+				q := devCapMap[name][capNameSMLimit]
+				val, succ := q.AsInt64()
+				if succ {
+					SMLimitEnv = fmt.Sprintf("CUDA_DEVICE_SM_LIMIT_%d=%s", idx, strconv.FormatInt(val, 10))
+				}
+			}
+			if _, ok := devCapMap[name][capNameMemoryLimit]; ok {
+				q := devCapMap[name][capNameMemoryLimit]
+				val, succ := q.AsInt64()
+				if succ {
+					MemoryLimitEnv = fmt.Sprintf("CUDA_DEVICE_MEMORY_LIMIT_%d=%s", idx, strconv.FormatInt(val/1024/1024, 10)+"m")
+				}
+			}
+		}
+		hamiEnvs = append(hamiEnvs, SMLimitEnv, MemoryLimitEnv)
 		idx++
 	}
 

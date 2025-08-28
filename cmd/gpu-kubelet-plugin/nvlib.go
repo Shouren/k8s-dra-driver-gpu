@@ -136,7 +136,7 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 	}
 	defer l.alwaysShutdown()
 
-	splitCount := config.flags.hamiCoreDevSplitCount
+	// splitCount := config.flags.hamiCoreDevSplitCount
 	devices := make(AllocatableDevices)
 	err := l.VisitDevices(func(i int, d nvdev.Device) error {
 		gpuInfo, err := l.getGpuInfo(i, d)
@@ -144,36 +144,36 @@ func (l deviceLib) enumerateGpusDevicesForHAMiCore(config *Config) (AllocatableD
 			return fmt.Errorf("error getting info for GPU %d: %w", i, err)
 		}
 
-		for idx := range splitCount {
-			hamiGpuInfo := &HAMiGpuInfo{
-				GpuInfo: GpuInfo{
-					UUID:                  gpuInfo.UUID,
-					minor:                 gpuInfo.minor,
-					index:                 gpuInfo.index,
-					migEnabled:            gpuInfo.migEnabled,
-					memoryBytes:           gpuInfo.memoryBytes,
-					productName:           gpuInfo.productName,
-					brand:                 gpuInfo.brand,
-					architecture:          gpuInfo.architecture,
-					cudaComputeCapability: gpuInfo.cudaComputeCapability,
-					driverVersion:         gpuInfo.driverVersion,
-					cudaDriverVersion:     gpuInfo.cudaDriverVersion,
-					pcieBusID:             gpuInfo.pcieBusID,
-					pcieRootAttr:          gpuInfo.pcieRootAttr,
-					migProfiles:           gpuInfo.migProfiles,
-				},
-				// TODO: A better mapping method should be applied
-				hamiSplitCounter: splitCount,
-				hamiIndex:        int(idx),
-				hamiSMLimit:      100 / splitCount,
-				hamiMemoryBytes:  gpuInfo.memoryBytes / uint64(splitCount),
-			}
-			deviceInfo := &AllocatableDevice{
-				HAMiGpu: hamiGpuInfo,
-			}
-			name := hamiGpuInfo.CanonicalName()
-			devices[name] = deviceInfo
+		// for idx := range splitCount {
+		hamiGpuInfo := &HAMiGpuInfo{
+			GpuInfo: GpuInfo{
+				UUID:                  gpuInfo.UUID,
+				minor:                 gpuInfo.minor,
+				index:                 gpuInfo.index,
+				migEnabled:            gpuInfo.migEnabled,
+				memoryBytes:           gpuInfo.memoryBytes,
+				productName:           gpuInfo.productName,
+				brand:                 gpuInfo.brand,
+				architecture:          gpuInfo.architecture,
+				cudaComputeCapability: gpuInfo.cudaComputeCapability,
+				driverVersion:         gpuInfo.driverVersion,
+				cudaDriverVersion:     gpuInfo.cudaDriverVersion,
+				pcieBusID:             gpuInfo.pcieBusID,
+				pcieRootAttr:          gpuInfo.pcieRootAttr,
+				migProfiles:           gpuInfo.migProfiles,
+			},
+			// TODO: A better mapping method should be applied
+			// hamiSplitCounter: splitCount,
+			// hamiIndex:        int(idx),
+			// hamiSMLimit:      100 / splitCount,
+			// hamiMemoryBytes:  gpuInfo.memoryBytes / uint64(splitCount),
 		}
+		deviceInfo := &AllocatableDevice{
+			HAMiGpu: hamiGpuInfo,
+		}
+		name := hamiGpuInfo.CanonicalName()
+		devices[name] = deviceInfo
+		// }
 
 		return nil
 	})

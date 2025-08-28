@@ -186,7 +186,7 @@ spec:
             sed -i 's/^ModifyDeviceFiles: 1$/ModifyDeviceFiles: 0/' root/gpu-params
             mount --bind root/gpu-params /proc/driver/nvidia/params
           fi
-          gpu-kubelet-plugin -v 6
+          gpu-kubelet-plugin -v 6 --enable-hami-core
         resources:
           {{- toYaml .Values.kubeletPlugin.containers.gpus.resources | nindent 10 }}
         {{/*
@@ -251,6 +251,12 @@ spec:
           mountPath: /driver-root
           readOnly: true
           mountPropagation: HostToContainer
+        - name: host-vgpu
+          mountPath: /usr/local/vgpu
+          readOnly: false
+        - name: host-tmp
+          mountPath: /tmp
+          readOnly: false
       {{- end }}
       volumes:
       - name: plugins-registry
@@ -281,6 +287,12 @@ spec:
       - name: host-dev
         hostPath:
           path: /dev
+      - name: host-vgpu
+        hostPath:
+          path: /usr/local/vgpu
+      - name: host-tmp
+        hostPath:
+          path: /tmp
       {{- with .Values.kubeletPlugin.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -21,6 +21,7 @@ featureGates:
   DRAResourceClaimDeviceStatus: true
   DRAPartitionableDevices: true
   DRAPrioritizedList: true
+  DRAConsumableCapacity: true
 containerdConfigPatches:
 # Enable CDI as described in
 # https://tags.cncf.io/container-device-interface#containerd-configuration

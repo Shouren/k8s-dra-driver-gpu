@@ -161,14 +161,14 @@ func newApp() *cli.App {
 			Destination: &flags.enableHAMiCore,
 			EnvVars:     []string{"ENABLE_HAMI_CORE"},
 		},
-		&cli.UintFlag{
-			Name:        "hami-core-dev-split-count",
-			Usage:       "The count of dev splitted by HAMi Core",
-			Required:    false,
-			DefaultText: "10",
-			Destination: &flags.hamiCoreDevSplitCount,
-			EnvVars:     []string{"HAMI_CORE_DEV_SPLIT_COUNT"},
-		},
+		// &cli.UintFlag{
+		// 	Name:        "hami-core-dev-split-count",
+		// 	Usage:       "The num of partitions of dev splitted by HAMi Core",
+		// 	Required:    false,
+		// 	DefaultText: "1",
+		// 	Destination: &flags.hamiCoreDevSplitCount,
+		// 	EnvVars:     []string{"HAMI_CORE_DEV_SPLIT_COUNT"},
+		// },
 	}
 	cliFlags = append(cliFlags, flags.kubeClientConfig.Flags()...)
 	cliFlags = append(cliFlags, flags.featureGateConfig.Flags()...)
